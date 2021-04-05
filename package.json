@@ -1,0 +1,30 @@
+{
+  "name": "chainweb",
+  "version": "1.0.0",
+  "description": "Javascript bindings for the Kadena Chainweb API",
+  "keywords": [
+    "chainweb",
+    "kadena",
+    "KDA",
+    "blockchain",
+    "api"
+  ],
+  "main": "index.js",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "author": "Lars Kuhtz <lars@kadena.io>",
+  "license": "MIT",
+  "dependencies": {
+    "base64-url": ">= 2.3.3",
+    "eventsource": "^1.1.0",
+    "node-fetch": ">= 2.6.1",
+    "p-retry": "^4.5.0"
+  },
+  "files": [
+    "package.json",
+    "src/*.js",
+    "main.js",
+    "test.js"
+  ]
+}
