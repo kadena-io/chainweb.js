@@ -313,8 +313,7 @@ const headers = async (chainId, start, end, network, host) => {
             start,
             end,
             network,
-            host,
-            ro
+            host
         )
         .then(x => x.items);
 }
@@ -423,7 +422,7 @@ const headers2blocks = async (hdrs, network, host, retryOptions) => {
  */
 const blocks = async (chainId, start, end, network, host) => {
     let hdrs = await headers(chainId, start, end, network, host);
-    return headers2blocks(network, host, hdrs);
+    return headers2blocks(hdrs, network, host);
 }
 
 /**
