@@ -1,5 +1,9 @@
 # Usage Examples
 
+```javascript
+const chainweb = require('chainweb');
+```
+
 ## Common parameters:
 
 *   `network`: the Kadena Chainweb network identifier. Default is `mainnet01`.
@@ -46,6 +50,25 @@ There are functions for three kinds of chain items:
     contains a `height` property that indicates the block height at which it
     occurred.
 
+### Block Chain Items By Height
+
+```javascript
+chainweb.header.height(0, 1000000).then(x => console.log("Header:", x));
+chainweb.block.height(0, 1000000).then(x => console.log("Block:", x));
+chainweb.transaction.height(0, 1000000).then(x => console.log("Transactions:", x));
+chainweb.event.height(0, 1000000).then(x => console.log("Events:", x));
+```
+
+### Block Chain Items By Block Hash
+
+```javascript
+const bh = 'k0an0qEORusqQg9ZjKrxa-0Bo0-hQVYLXqWi5LHxg3k';
+chainweb.header.blockHash(0, bh).then(x => console.log("Header:", x));
+chainweb.block.blockHash(0, bh).then(x => console.log("Block:", x));
+chainweb.transaction.blockHash(0, bh).then(x => console.log("Transactions:", x));
+chainweb.event.blockHash(0, bh).then(x => console.log("Events:", x));
+```
+
 ### Recent Block Chain Items
 
 These functions return items from recent blocks in the block history starting
@@ -59,10 +82,10 @@ return whatever fits into a server page.
 
 
 ```javascript
-chainweb.headers.recent(0, 3, 10).then(x => console.log("Headers:", x));
-chainweb.blocks.recent(0, 3, 10).then(x => console.log("Blocks:", x));
-chainweb.transactions.recent(0, 3, 50).then(x => console.log("Transactions:", x));
-chainweb.events.recent(0, 3, 1000).then(x => console.log("Events:", x));
+chainweb.header.recent(0, 3, 10).then(x => console.log("Headers:", x));
+chainweb.block.recent(0, 3, 10).then(x => console.log("Blocks:", x));
+chainweb.transaction.recent(0, 3, 50).then(x => console.log("Transactions:", x));
+chainweb.event.recent(0, 3, 1000).then(x => console.log("Events:", x));
 ```
 
 ### Ranges of Block Chain Items
@@ -80,10 +103,10 @@ items. In order of exhaustively querying all, including old, items, one
 should also use `range` or `recent` queries for the respective type of item.
 
 ```javascript
-chainweb.headers.range(0, 1500000, 1500010).then(x => console.log("Headers:", x));
-chainweb.blocks.range(0, 1500000, 1500010).then(x => console.log("Blocks:", x));
-chainweb.transactions.range(0, 1500000, 1500010).then(x => console.log("Transactions:", x));
-chainweb.events.range(0, 1500000, 1500010).then(x => console.log("Events:", x));
+chainweb.header.range(0, 1500000, 1500010).then(x => console.log("Headers:", x));
+chainweb.block.range(0, 1500000, 1500010).then(x => console.log("Blocks:", x));
+chainweb.transaction.range(0, 1500000, 1500010).then(x => console.log("Transactions:", x));
+chainweb.event.range(0, 1500000, 1500010).then(x => console.log("Events:", x));
 ```
 
 ### Streams
@@ -102,10 +125,10 @@ advanced low-level control.
 ```javascript
 const chains = [0,1,9];
 
-const hs = chainweb.headers.stream(2, chains, console.log);
-const bs = chainweb.blocks.stream(2, chains, console.log);
-const ts = chainweb.transactions.stream(2, chains, x => { console.log(x); });
-const es = chainweb.events.stream(2, chains, console.log);
+const hs = chainweb.header.stream(2, chains, console.log);
+const bs = chainweb.block.stream(2, chains, console.log);
+const ts = chainweb.transaction.stream(2, chains, x => { console.log(x); });
+const es = chainweb.event.stream(2, chains, console.log);
 ```
 
 
