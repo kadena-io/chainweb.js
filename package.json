@@ -9,6 +9,15 @@
     "blockchain",
     "api"
   ],
+  "homepage": "https://github.com/kadena-io/chainweb.js",
+  "bugs": {
+    "url": "https://github.com/kadena-io/chainweb.js/issues",
+    "email": "chainweb-dev@kadena.io"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kadena-io/chainweb.js.git"
+  },
   "main": "index.js",
   "scripts": {
     "test": "node test.js"
@@ -24,6 +33,7 @@
   "files": [
     "package.json",
     "README.md",
+    "LICENSE",
     "index.js",
     "src/*.js",
     "test.js"
