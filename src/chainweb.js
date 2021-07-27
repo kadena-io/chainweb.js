@@ -1,6 +1,7 @@
 /** chainweb.js
  * Exports functions to support interacting with a chainweb block chain
  * Author: Lar Kuhtz
+ * @module chainweb
  */
 
 /* ************************************************************************** */
@@ -124,6 +125,8 @@ const chainUrl = (chainId, network, host, pathSuffix) => {
  * @param {Object} [retryOptions] - retry options object as accepted by the retry package
  * @param {boolean} [retryOptions.retry404=false] - whether to retry on 404 results
  * @return {Object} cut hashes object
+ *
+ * @alias module:chainweb.cut.current
  */
 const currentCut = async (network, host, retryOptions) => {
     const response = await retryFetch(
@@ -143,6 +146,8 @@ const currentCut = async (network, host, retryOptions) => {
  * @return {Object[]} Array of peer objects
  *
  * TODO: support paging
+ *
+ * @alias module:chainweb.cut.peers
  */
 const cutPeers = async (network, host, retryOptions) => {
     const response = await retryFetch(
@@ -168,6 +173,8 @@ const cutPeers = async (network, host, retryOptions) => {
  * @return {Object[]} Array of block header objects
  *
  * TODO: support paging
+ *
+ * @alias module:chainweb.branch
  */
 const branch = async (chainId, upper, lower, minHeight, maxHeight, n, network, host, retryOptions) => {
 
@@ -215,6 +222,8 @@ const branch = async (chainId, upper, lower, minHeight, maxHeight, n, network, h
  * @return {Object[]} Array of block header objects
  *
  * TODO: support paging
+ *
+ * @alias module:chainweb.payloads
  */
 const payloads = async (chainId, hashes, network, host, retryOptions) => {
 
@@ -307,6 +316,8 @@ const chainUpdates = (depth, chainIds, callback, network, host) => {
  * @return {Promise} Array of block headers
  *
  * TODO: support paging
+ *
+ * @alias module:chainweb.header.range
  */
 const headers = async (chainId, start, end, network, host) => {
     const cut = await currentCut(network, host);
@@ -334,6 +345,8 @@ const headers = async (chainId, start, end, network, host) => {
  * @return {Promise} Array of headers
  *
  * TODO: support paging
+ *
+ * @alias module:chainweb.header.recent
  */
 const recentHeaders = async (chainId, depth = 0, n = 1, network, host) => {
     const cut = await currentCut(network, host);
@@ -366,8 +379,39 @@ const recentHeaders = async (chainId, depth = 0, n = 1, network, host) => {
  * @param {string} [network="mainnet01"] - chainweb network
  * @param {string} [host="https://api.chainweb.com"] - chainweb api host
  * @returns the event source object the backs the stream
+ *
+ * @alias module:chainweb.header.stream
  */
 const headerStream = (depth, chainIds, callback, network, host) => {
+    return chainUpdates(depth, chainIds, u => callback(u.header), network, host);
+}
+
+/* No guarantee on order
+ */
+const headerStreamSince = (start, depth, chainId, callback, network, host) => {
+
+    // loop while (streamStart == null || a < streamStart)
+    const a = start - 1;
+    const streamStart = null;
+
+    // find recent upper bound (cur - depth)
+    // initialize header buffer (disabled check for continuous blocks)
+    // make sure to insert start as first item
+    // query entries for each gap that is smaller than streamStart
+    // start catching up to upper bound
+
+    // stream
+    const hdrs1p = headerStream(depth, [chainId], callback, network, host);
+
+    // catch up to the first block of the stream
+    while (streamStart == null || a < streamStart - 1) {
+
+        const hdrs0p = headers(chainId, start, null, network, host)
+            .then(x => { callback(x); a = Math.max(a, x.height); });
+    }
+
+
+    // release stream
     return chainUpdates(depth, chainIds, u => callback(u.header), network, host);
 }
 
@@ -380,7 +424,7 @@ const headerStream = (depth, chainIds, callback, network, host) => {
  * @param {string} [host="https://api.chainweb.com"] - chainweb api host
  * @return {Promise}
  *
- * TODO: support paging
+ * @alias module:chainweb.header.hash
  */
 const headerByBlockHash = (chainId, hash, network, host) =>
     branch(chainId, [hash], [], null, null, 1).then(x => x.items[0]);
@@ -439,6 +483,8 @@ const headers2blocks = async (hdrs, network, host, retryOptions) => {
  * @return {Promise} Array of blocks
  *
  * TODO: support paging
+ *
+ * @alias module:chainweb.block.range
  */
 const blocks = async (chainId, start, end, network, host) => {
     let hdrs = await headers(chainId, start, end, network, host);
@@ -456,6 +502,8 @@ const blocks = async (chainId, start, end, network, host) => {
  * @return {Promise} Array of blocks
  *
  * TODO: support paging
+ *
+ * @alias module:chainweb.block.recent
  */
 const recentBlocks = async (chainId, depth = 0, n = 1, network, host) => {
     let hdrs = await recentHeaders(chainId, depth, n, network, host);
@@ -482,6 +530,8 @@ const recentBlocks = async (chainId, depth = 0, n = 1, network, host) => {
  * @param {string} [network="mainnet01"] - chainweb network
  * @param {string} [host="https://api.chainweb.com"] - chainweb api host
  * @returns the event source object the backs the stream
+ *
+ * @alias module:chainweb.stream.stream
  */
 const blockStream = (depth, chainIds, callback, network, host) => {
     const ro = depth > 1 ? {} : { retry404: true, minTimeout: 1000 };
@@ -502,7 +552,7 @@ const blockStream = (depth, chainIds, callback, network, host) => {
  * @param {string} [host="https://api.chainweb.com"] - chainweb api host
  * @return {Promise}
  *
- * TODO: support paging
+ * @alias module:chainweb.block.hash
  */
 const blockByBlockHash = async (chainId, hash, network, host) => {
     const hdr = await headerByBlockHash(chainId, hash, network, host);
@@ -536,6 +586,8 @@ const filterTxs = (blocks) => {
  * @return {Promise} Array of transactions
  *
  * TODO: support paging
+ *
+ * @alias module:chainweb.transaction.range
  */
 const txs = async (chainId, start, end, network, host) => {
     return blocks(chainId, start, end, network, host).then(filterTxs);
@@ -552,6 +604,8 @@ const txs = async (chainId, start, end, network, host) => {
  * @return {Promise} Array of transactions
  *
  * TODO: support paging
+ *
+ * @alias module:chainweb.transaction.recent
  */
 const recentTxs = async (chainId, depth = 0, n = 1, network, host) => {
     return recentBlocks(chainId, depth, n, network, host).then(filterTxs);
@@ -573,6 +627,8 @@ const recentTxs = async (chainId, depth = 0, n = 1, network, host) => {
  * @param {string} [network="mainnet01"] - chainweb network
  * @param {string} [host="https://api.chainweb.com"] - chainweb api host
  * @returns the event source object the backs the stream
+ *
+ * @alias module:chainweb.transaction.stream
  */
 const txStream = (depth, chainIds, callback, network, host) => {
     const ro = depth > 1 ? {} : { retry404: true, minTimeout: 1000 };
@@ -595,7 +651,7 @@ const txStream = (depth, chainIds, callback, network, host) => {
  * @param {string} [host="https://api.chainweb.com"] - chainweb api host
  * @return {Promise}
  *
- * TODO: support paging
+ * @alias module:chainweb.transaction.hash
  */
 const txsByBlockHash = async (chainId, hash, network, host) => {
     const block = await blockByBlockHash(chainId, hash, network, host)
@@ -618,6 +674,20 @@ const filterEvents = (blocks) => {
         }));
 }
 
+/**
+ * Events from a range of block heights
+ *
+ * @param {number|string} chainId - a chain id that is valid for the network
+ * @param {number} start - start block height
+ * @param {number} end - end block height
+ * @param {string} [network="mainnet01"] - chainweb network
+ * @param {string} [host="https://api.chainweb.com"] - chainweb api host
+ * @return {Promise} Array of events
+ *
+ * TODO: support paging
+ *
+ * @alias module:chainweb.transaction.range
+ */
 const events = async (chainId, start, end, network, host) => {
     return blocks(chainId, start, end, network, host).then(filterEvents);
 }
@@ -633,6 +703,8 @@ const events = async (chainId, start, end, network, host) => {
  * @return {Promise} Array of Pact events
  *
  * TODO: support paging
+ *
+ * @alias module:chainweb.event.recent
  */
 const recentEvents = async (chainId, depth = 0, n = 1, network, host) => {
     return recentBlocks(chainId, depth, n, network, host).then(filterEvents);
@@ -654,6 +726,8 @@ const recentEvents = async (chainId, depth = 0, n = 1, network, host) => {
  * @param {string} [network="mainnet01"] - chainweb network
  * @param {string} [host="https://api.chainweb.com"] - chainweb api host
  * @returns the event source object the backs the stream
+ *
+ * @alias module:chainweb.event.stream
  */
 const eventStream = (depth, chainIds, callback, network, host) => {
     const ro = depth > 1 ? {} : { retry404: true, minTimeout: 1000 };
@@ -676,7 +750,7 @@ const eventStream = (depth, chainIds, callback, network, host) => {
  * @param {string} [host="https://api.chainweb.com"] - chainweb api host
  * @return {Promise}
  *
- * TODO: support paging
+ * @alias module:chainweb.event.hash
  */
 const eventsByBlockHash = async (chainId, hash, network, host) => {
     const block = await blockByBlockHash(chainId, hash, network, host)
@@ -687,35 +761,86 @@ const eventsByBlockHash = async (chainId, hash, network, host) => {
 /* Module Exports */
 
 module.exports = {
+    /**
+     * @namespace
+     */
     cut: {
         current: currentCut,
         peers: cutPeers
     },
+    /**
+     * @namespace
+     */
     header: {
         range: headers,
         recent: recentHeaders,
         stream: headerStream,
+        /**
+        * Query block header by its height
+        *
+        * @param {number|string} chainId - a chain id that is valid for the network
+        * @param {string} hash - block height
+        * @param {string} [network="mainnet01"] - chainweb network
+        * @param {string} [host="https://api.chainweb.com"] - chainweb api host
+        * @return {Promise}
+        */
         height: (chainId, height, network, host) => headers(chainId, height, height, network, host).then(x => x[0]),
         blockHash: headerByBlockHash,
     },
+    /**
+     * @namespace
+     */
     block: {
         range: blocks,
         recent: recentBlocks,
         stream: blockStream,
+        /**
+        * Query block by its height
+        *
+        * @param {number|string} chainId - a chain id that is valid for the network
+        * @param {string} hash - block height
+        * @param {string} [network="mainnet01"] - chainweb network
+        * @param {string} [host="https://api.chainweb.com"] - chainweb api host
+        * @return {Promise}
+        */
         height: (chainId, height, network, host) => blocks(chainId, height, height, network, host).then(x => x[0]),
         blockHash: blockByBlockHash,
     },
+    /**
+     * @namespace
+     */
     transaction: {
         range: txs,
         recent: recentTxs,
         stream: txStream,
+        /**
+        * Query transactions by height
+        *
+        * @param {number|string} chainId - a chain id that is valid for the network
+        * @param {string} hash - block height
+        * @param {string} [network="mainnet01"] - chainweb network
+        * @param {string} [host="https://api.chainweb.com"] - chainweb api host
+        * @return {Promise}
+        */
         height: (chainId, height, network, host) => txs(chainId, height, height, network, host),
         blockHash: txsByBlockHash,
     },
+    /**
+     * @namespace
+     */
     event: {
         range: events,
         recent: recentEvents,
         stream: eventStream,
+        /**
+        * Query Events by height
+        *
+        * @param {number|string} chainId - a chain id that is valid for the network
+        * @param {string} hash - block height
+        * @param {string} [network="mainnet01"] - chainweb network
+        * @param {string} [host="https://api.chainweb.com"] - chainweb api host
+        * @return {Promise}
+        */
         height: (chainId, height, network, host) => events(chainId, height, height, network, host),
         blockHash: eventsByBlockHash,
     },

@@ -59,6 +59,8 @@ chainweb.transaction.height(0, 1000000).then(x => console.log("Transactions:", x
 chainweb.event.height(0, 1000000).then(x => console.log("Events:", x));
 ```
 
+The parameters, in order, are: chain id and block height.
+
 ### Block Chain Items By Block Hash
 
 ```javascript
@@ -68,6 +70,8 @@ chainweb.block.blockHash(0, bh).then(x => console.log("Block:", x));
 chainweb.transaction.blockHash(0, bh).then(x => console.log("Transactions:", x));
 chainweb.event.blockHash(0, bh).then(x => console.log("Events:", x));
 ```
+
+The parameters, in order, are: chain id and block hash.
 
 ### Recent Block Chain Items
 
@@ -80,13 +84,15 @@ Currently, there is no support for paging. There is thus a limit on the
 size of the range that can be handled in a single call. The function simply
 return whatever fits into a server page.
 
-
 ```javascript
 chainweb.header.recent(0, 3, 10).then(x => console.log("Headers:", x));
 chainweb.block.recent(0, 3, 10).then(x => console.log("Blocks:", x));
 chainweb.transaction.recent(0, 3, 50).then(x => console.log("Transactions:", x));
 chainweb.event.recent(0, 3, 1000).then(x => console.log("Events:", x));
 ```
+
+The parameters, in order, are: chain id, depth, and maximum number of returned
+items.
 
 ### Ranges of Block Chain Items
 
@@ -97,17 +103,14 @@ Currently, there is no support for paging. There is thus a limit on the
 size of the range that can be handled in a single call. The function simply
 return whatever fits into a server page.
 
-Streams are online and only return items from blocks that got mined after the
-stream was started. They are thus useful for prompt notification of new
-items. In order of exhaustively querying all, including old, items, one
-should also use `range` or `recent` queries for the respective type of item.
-
 ```javascript
 chainweb.header.range(0, 1500000, 1500010).then(x => console.log("Headers:", x));
 chainweb.block.range(0, 1500000, 1500010).then(x => console.log("Blocks:", x));
 chainweb.transaction.range(0, 1500000, 1500010).then(x => console.log("Transactions:", x));
 chainweb.event.range(0, 1500000, 1500010).then(x => console.log("Events:", x));
 ```
+
+The parameters, in order, are: chain id, start height, and end height.
 
 ### Streams
 
@@ -131,6 +134,13 @@ const ts = chainweb.transaction.stream(2, chains, x => { console.log(x); });
 const es = chainweb.event.stream(2, chains, console.log);
 ```
 
+The parameters, in order, are: depths, included chains, and a function that is
+called for each item in the stream.
+
+Streams are online and only return items from blocks that got mined after the
+stream was started. They are thus useful for prompt notification of new
+items. In order of exhaustively querying all, including old, items, one
+should also use `range` or `recent` queries for the respective type of item.
 
 # Example Values
 
@@ -230,3 +240,4 @@ Example of an event object:
   height: 1511601
 }
 ```
+
