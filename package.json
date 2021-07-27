@@ -20,7 +20,8 @@
   },
   "main": "index.js",
   "scripts": {
-    "test": "node test.js"
+    "test": "node test.js",
+    "doc": "jsdoc index.js src/chainweb.js README.md"
   },
   "author": "Lars Kuhtz <lars@kadena.io>",
   "license": "MIT",
@@ -37,5 +38,8 @@
     "index.js",
     "src/*.js",
     "test.js"
-  ]
+  ],
+  "devDependencies": {
+    "jsdoc": "^3.6.7"
+  }
 }
