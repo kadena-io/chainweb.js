@@ -1,3 +1,15 @@
+High level Javascript bindings for the [Kadena](https://kadena.io)
+[Chainweb REST API](https://api.chainweb.com).
+
+This package does not include the [Pact REST
+API](https://api.chainweb.com/openapi/pact.html) endpoints.
+High level bindings for the Pact API are provided by the [pact-lang-api
+package](https://www.npmjs.com/package/pact-lang-api).
+
+# Documentation
+
+The API documentation for this package is available at https://kadena-io.github.io/chainweb.js
+
 # Usage Examples
 
 ```javascript
