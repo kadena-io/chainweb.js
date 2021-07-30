@@ -20,7 +20,7 @@
   },
   "main": "index.js",
   "scripts": {
-    "test": "node test.js",
+    "test": "jest test.js",
     "doc": "jsdoc index.js src/chainweb.js README.md"
   },
   "author": "Lars Kuhtz <lars@kadena.io>",
@@ -40,6 +40,7 @@
     "test.js"
   ],
   "devDependencies": {
+    "jest": "^27.0.6",
     "jsdoc": "^3.6.7"
   }
 }
