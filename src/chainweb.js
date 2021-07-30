@@ -26,6 +26,14 @@ const HeaderBuffer = require('./HeaderBuffer');
  */
 const base64json = txt => JSON.parse(base64url.decode(txt));
 
+class ResponseError extends Error {
+    constructor(response) {
+        const msg = `Request ${response.url} failed with ${response.status}, ${response.statusText}`;
+        super(msg);
+        this.response = response;
+    }
+}
+
 /**
  * Retry a fetch callback
  *
@@ -35,17 +43,15 @@ const base64json = txt => JSON.parse(base64url.decode(txt));
  */
 const retryFetch = async (retryOptions, fetchAction) => {
 
-    let retry404 = false;
-    if (retryOptions) {
-        retry404 = retryOptions.retry404 ?? false;
-    } else {
-        retryOptions = {
-            onFailedAttempt: x => console.log(x),
-            retries: 2,
-            minTimeout: 500,
-            randomize: true
-        };
-    }
+    retryOptions = {
+        onFailedAttempt: retryOptions?.onFailedAttempt ?? (x => console.log("failed fetch attempt:", x.message)),
+        retries: retryOptions?.retries ?? 2,
+        minTimeout: retryOptions?.minTimeout ?? 500,
+        randomize: retryOptions?.randomize ?? true,
+        retry404: retryOptions?.retry404 ?? false,
+    };
+
+    const retry404 = retryOptions.retry404;
 
     const run = async () => {
         const response = await fetchAction();
@@ -54,36 +60,35 @@ const retryFetch = async (retryOptions, fetchAction) => {
 
         // retry 404 if requested
         } else if (response.status == 404 && retry404) { // not found
-            throw response
+            throw new ResponseError(response);
 
         // retry potentially ephemeral failure conditions
         } else if (response.status == 408) { // response timeout
-            throw response
+            throw new ResponseError(response);
         } else if (response.status == 423) { // locked
-            throw response
+            throw new ResponseError(response);
         } else if (response.status == 425) { // too early
-            throw response
+            throw new ResponseError(response);
         } else if (response.status == 429) { // too many requests
-            throw response
+            throw new ResponseError(response);
         } else if (response.status == 500) { // internal server error
-            throw response
+            throw new ResponseError(response);
         } else if (response.status == 502) { // bad gateway
-            throw response
+            throw new ResponseError(response);
         } else if (response.status == 503) { // service unavailable
-            throw response
+            throw new ResponseError(response);
         } else if (response.status == 504) { // gateway timeout
-            throw response
+            throw new ResponseError(response);
 
         // don't retry on anything else
         } else if (response.status == 204) { // no content
-            return pRetry.AbortError(response);
+            throw new pRetry.AbortError(new ResponseError(response));
         } else {
-            return pRetry.AbortError(response);
+            throw new pRetry.AbortError(new ResponseError(response));
         }
     }
 
-    const res = await pRetry(run, retryOptions);
-    return res;
+    return await pRetry(run, retryOptions);
 }
 
 /**
@@ -109,7 +114,7 @@ const baseUrl = (network = "mainnet01", host = "https://api.chainweb.com", pathS
  */
 const chainUrl = (chainId, network, host, pathSuffix) => {
     if (chainId == null) {
-        throw "missing chainId parameter";
+        throw new Error("missing chainId parameter");
     }
     return baseUrl(network, host, `chain/${chainId}/${pathSuffix}`);
 }
@@ -454,7 +459,7 @@ const headers2blocks = async (hdrs, network, host, retryOptions) => {
     );
 
     if (hdrs.length !== pays.length) {
-        throw `failed to get payload for some blocks. Requested ${hdrs.length} payloads but got only ${pays.length}`
+        throw new Error (`failed to get payload for some blocks. Requested ${hdrs.length} payloads but got only ${pays.length}`)
     }
 
     let result = [];
@@ -466,7 +471,7 @@ const headers2blocks = async (hdrs, network, host, retryOptions) => {
                 payload: pay
             });
         } else {
-            throw `failed to get payload for block hash ${hdr.hash} at height ${hdr.height}`
+            throw new Error (`failed to get payload for block hash ${hdr.hash} at height ${hdr.height}`);
         }
     }
     return result;
@@ -761,6 +766,8 @@ const eventsByBlockHash = async (chainId, hash, network, host) => {
 /* Module Exports */
 
 module.exports = {
+    ResponseError: ResponseError,
+
     /**
      * @namespace
      */
