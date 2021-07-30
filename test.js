@@ -5,7 +5,8 @@ const HeaderBuffer = require('./src/HeaderBuffer');
 /* Test settings */
 
 const debug = false;
-const streamTest = test.concurrent.skip;
+// const streamTest = test.concurrent.skip;
+const streamTest = test.concurrent;
 
 /* ************************************************************************** */
 /* Test Utils */
