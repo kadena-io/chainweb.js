@@ -1000,7 +1000,7 @@ module.exports = {
      * @namespace
      */
     internal: {
-        branchPage: branchPage
+        branchPage: branchPage,
         branch: branch,
         currentBranch: currentBranch,
         payloads: payloads,
