@@ -142,6 +142,25 @@ const currentCut = async (network, host, retryOptions) => {
 }
 
 /**
+ * Page of P2P peers of the cut network
+ *
+ * @param {string} [network="mainnet01"] - chainweb network
+ * @param {string} [host="https://api.chainweb.com"] - chainweb api host
+ * @param {Object} [retryOptions] - retry options object as accepted by the retry package
+ * @param {boolean} [retryOptions.retry404=false] - whether to retry on 404 results
+ * @return {Object[ Page of peer objects. The size of a page is determined by the server.
+ *
+ * @alias module:chainweb.cut.peers
+ */
+const cutPeerPage = async (network, host, retryOptions) => {
+    const response = await retryFetch(
+        retryOptions,
+        () => fetch(baseUrl(network, host, "cut/peer"))
+    );
+    return response.json()
+}
+
+/**
  * P2P peers of the cut network
  *
  * @param {string} [network="mainnet01"] - chainweb network
@@ -150,16 +169,11 @@ const currentCut = async (network, host, retryOptions) => {
  * @param {boolean} [retryOptions.retry404=false] - whether to retry on 404 results
  * @return {Object[]} Array of peer objects
  *
- * TODO: support paging
- *
  * @alias module:chainweb.cut.peers
  */
 const cutPeers = async (network, host, retryOptions) => {
-    const response = await retryFetch(
-        retryOptions,
-        () => fetch(baseUrl(network, host, "cut/peer"))
-    );
-    return response.json();
+    const page = await cutPeerPage(network, host, retryOptions);
+    return page.items.reverse();
 }
 
 /**
@@ -171,17 +185,25 @@ const cutPeers = async (network, host, retryOptions) => {
  * @param {number} [minHeight] - if given, minimum height of returned headers
  * @param {number} [maxHeight] - if given, maximum height of returned headers
  * @param {number} [n] - if given, limits the number of results. This is an upper limit. The actual number of returned items can be lower.
+ * @param {string} [format='json'] - encoding of result headers. Possible values are 'json' (default) and 'binary'.
  * @param {string} [network="mainnet01"] - chainweb network
  * @param {string} [host="https://api.chainweb.com"] - chainweb api host
  * @param {Object} [retryOptions] - retry options object as accepted by the retry package
  * @param {boolean} [retryOptions.retry404=false] - whether to retry on 404 results
- * @return {Object[]} Array of block header objects
+ * @return {Object} Page of block headers in requested format. Headers are listed in decending order by height. The page size of a page is determined by the server.
  *
- * TODO: support paging
- *
- * @alias module:chainweb.branch
+ * @alias module:chainweb.internal.branch
  */
-const branch = async (chainId, upper, lower, minHeight, maxHeight, n, network, host, retryOptions) => {
+const branch = async (chainId, upper, lower, minHeight, maxHeight, n, format, network, host, retryOptions) => {
+
+    /* Format and Accept header value */
+    format = format ?? 'json';
+    var accept = "";
+    switch (format) {
+        case 'json': accept = 'application/json;blockheader-encoding=object'; break;
+        case 'binary': accept = 'application/json'; break;
+        default: throw new Error(`Unsupported header format ${format}. Supported values are 'json' and 'binary'.`)
+    }
 
     /* URL */
     let url = chainUrl(chainId, network, host, "header/branch");
@@ -207,8 +229,8 @@ const branch = async (chainId, upper, lower, minHeight, maxHeight, n, network, h
             method: 'post',
             body: JSON.stringify(body),
             headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json;blockheader-encoding=object'
+                'Content-Type': 'application/json',
+                'Accept': accept,
             }
         })
     );
@@ -216,21 +238,51 @@ const branch = async (chainId, upper, lower, minHeight, maxHeight, n, network, h
 }
 
 /**
+ * Headers from the current branch of the chain
+ *
+ * @param {number|string} chainId - a chain id that is valid for the network
+ * @param {number} start - start block height
+ * @param {number} end - end block height
+ * @param {number} [n] - if given, limits the number of results. This is an upper limit. The actual number of returned items can be lower.
+ * @param {string} [format='json'] - encoding of result headers. Possible values are 'json' (default) and 'binary'.
+ * @param {string} [network="mainnet01"] - chainweb network
+ * @param {string} [host="https://api.chainweb.com"] - chainweb api host
+ * @return {Object} Page of block headers in requested format. Headers are listed in decending order by height. The page size of a page is determined by the server.
+ *
+ * @alias module:chainweb.internal.currentBranch
+ */
+const currentBranch = async (chainId, start, end, n, format, network, host) => {
+    const cut = await currentCut(network, host);
+    return await branch(
+            chainId,
+            [cut.hashes[`${chainId}`].hash],
+            [],
+            start,
+            end,
+            n,
+            format,
+            network,
+            host
+        );
+}
+
+/**
  * Payloads with outputs
  *
  * @param {number|string} chainId - a chain id that is valid for the network
  * @param {string[]} hashes - array of block payload hashes
+ * @param {string} [format='json'] - encoding of payload properties. Possible values are 'json' (default) and 'base64'.
  * @param {string} [network="mainnet01"] - chainweb network
  * @param {string} [host="https://api.chainweb.com"] - chainweb api host
  * @param {Object} [retryOptions] - retry options object as accepted by the retry package
  * @param {boolean} [retryOptions.retry404=false] - whether to retry on 404 results
- * @return {Object[]} Array of block header objects
+ * @return {Object[]} Array of block header objects. There is no guarantee about how many paylaods are returned and what payloads aer included in the result.
  *
- * TODO: support paging
- *
- * @alias module:chainweb.payloads
+ * @alias module:chainweb.internal.payloads
  */
-const payloads = async (chainId, hashes, network, host, retryOptions) => {
+const payloads = async (chainId, hashes, format, network, host, retryOptions) => {
+
+    format = format ?? 'json';
 
     const url = chainUrl(chainId, network, host, `payload/outputs/batch`);
 
@@ -247,21 +299,27 @@ const payloads = async (chainId, hashes, network, host, retryOptions) => {
 
     let res = await response.json();
 
-    return res.map(x => {
-        const txs = x.transactions;
-        x.minerData = base64json(x.minerData);
-        x.coinbase = base64json(x.coinbase);
-        x.transactions = txs.map(y => {
-            const tx = base64json(y[0]);
-            const out = base64json(y[1]);
-            tx.cmd = JSON.parse(tx.cmd);
-            return {
-                transaction: tx,
-                output: out
-            };
+    if (format == 'json') {
+        return res.map(x => {
+            const txs = x.transactions;
+            x.minerData = base64json(x.minerData);
+            x.coinbase = base64json(x.coinbase);
+            x.transactions = txs.map(y => {
+                const tx = base64json(y[0]);
+                const out = base64json(y[1]);
+                tx.cmd = JSON.parse(tx.cmd);
+                return {
+                    transaction: tx,
+                    output: out
+                };
+            });
+            return x;
         });
+    } else if (format == 'base64') {
         return x;
-    });
+    } else {
+        throw new Error(`Unsupported format '${format}'. Supported formats are 'json' (default) and 'base64'`);
+    }
 }
 
 /**
@@ -318,25 +376,15 @@ const chainUpdates = (depth, chainIds, callback, network, host) => {
  * @param {number} end - end block height
  * @param {string} [network="mainnet01"] - chainweb network
  * @param {string} [host="https://api.chainweb.com"] - chainweb api host
- * @return {Promise} Array of block headers
+ * @return {Promise} Array of block headers in ascending order.
  *
- * TODO: support paging
+ * TODO: make sure that no header is missing (throw or support paging)
  *
  * @alias module:chainweb.header.range
  */
 const headers = async (chainId, start, end, network, host) => {
-    const cut = await currentCut(network, host);
-    return branch(
-            chainId,
-            [cut.hashes[`${chainId}`].hash],
-            [],
-            start,
-            end,
-            null,
-            network,
-            host
-        )
-        .then(x => x.items);
+    const b = await currentBranch(chainId, start, end, null, 'json', network, host);
+    return b.items.reverse();
 }
 
 /**
@@ -347,25 +395,19 @@ const headers = async (chainId, start, end, network, host) => {
  * @param {number} n - maximual number of headers that are returned. The actual number of returned headers may be lower.
  * @param {string} [network="mainnet01"] - chainweb network
  * @param {string} [host="https://api.chainweb.com"] - chainweb api host
- * @return {Promise} Array of headers
+ * @return {Promise} Array of headers in ascending order.
  *
- * TODO: support paging
+ * TODO: make sure that no header is missing (throw or support paging)
  *
  * @alias module:chainweb.header.recent
  */
 const recentHeaders = async (chainId, depth = 0, n = 1, network, host) => {
     const cut = await currentCut(network, host);
-    return branch(
-            chainId,
-            [cut.hashes[`${chainId}`].hash],
-            [],
-            cut.hashes['0'].height - depth - n + 1,
-            cut.hashes['0'].height - depth,
-            n,
-            network,
-            host
-        )
-        .then(x => x.items);
+    const start = cut.hashes['0'].height - depth - n + 1;
+    const end = cut.hashes['0'].height - depth;
+    const upper = cut.hashes[`${chainId}`].hash;
+    const b = await branch(chainId, [upper], [], start, end, n, 'json', network, host);
+    return b.items.reverse();
 }
 
 /**
@@ -415,7 +457,6 @@ const headerStreamSince = (start, depth, chainId, callback, network, host) => {
             .then(x => { callback(x); a = Math.max(a, x.height); });
     }
 
-
     // release stream
     return chainUpdates(depth, chainIds, u => callback(u.header), network, host);
 }
@@ -431,8 +472,26 @@ const headerStreamSince = (start, depth, chainId, callback, network, host) => {
  *
  * @alias module:chainweb.header.hash
  */
-const headerByBlockHash = (chainId, hash, network, host) =>
-    branch(chainId, [hash], [], null, null, 1).then(x => x.items[0]);
+const headerByBlockHash = async (chainId, hash, network, host) => {
+    const x = await branch(chainId, [hash], [], null, null, 1);
+    return x.items[0];
+}
+
+/**
+ * Query block header by its height
+ *
+ * @param {number|string} chainId - a chain id that is valid for the network
+ * @param {string} hash - block height
+ * @param {string} [network="mainnet01"] - chainweb network
+ * @param {string} [host="https://api.chainweb.com"] - chainweb api host
+ * @return {Promise}
+ *
+ * @alias module:chainweb.header.height
+ */
+const headerByHeight = async (chainId, height, network, host) => {
+    const x = await headers(chainId, height, height, network, host);
+    return x[0];
+}
 
 /* ************************************************************************** */
 /* Blocks */
@@ -453,6 +512,7 @@ const headers2blocks = async (hdrs, network, host, retryOptions) => {
     const pays = await payloads(
         chainId,
         hdrs.map(x => x.payloadHash),
+        'json',
         network,
         host,
         retryOptions
@@ -487,8 +547,6 @@ const headers2blocks = async (hdrs, network, host, retryOptions) => {
  * @param {string} [host="https://api.chainweb.com"] - chainweb api host
  * @return {Promise} Array of blocks
  *
- * TODO: support paging
- *
  * @alias module:chainweb.block.range
  */
 const blocks = async (chainId, start, end, network, host) => {
@@ -505,8 +563,6 @@ const blocks = async (chainId, start, end, network, host) => {
  * @param {string} [network="mainnet01"] - chainweb network
  * @param {string} [host="https://api.chainweb.com"] - chainweb api host
  * @return {Promise} Array of blocks
- *
- * TODO: support paging
  *
  * @alias module:chainweb.block.recent
  */
@@ -564,6 +620,22 @@ const blockByBlockHash = async (chainId, hash, network, host) => {
     return headers2blocks([hdr], network, host).then(x => x[0]);
 }
 
+/**
+ * Query block by its height
+ *
+ * @param {number|string} chainId - a chain id that is valid for the network
+ * @param {string} hash - block height
+ * @param {string} [network="mainnet01"] - chainweb network
+ * @param {string} [host="https://api.chainweb.com"] - chainweb api host
+ * @return {Promise}
+ *
+ * @alias module:chainweb.block.height
+ */
+const blockByHeight = async (chainId, height, network, host) => {
+    const x = await blocks(chainId, height, height, network, host);
+    return x[0];
+}
+
 /* ************************************************************************** */
 /* Transactions */
 
@@ -590,12 +662,11 @@ const filterTxs = (blocks) => {
  * @param {string} [host="https://api.chainweb.com"] - chainweb api host
  * @return {Promise} Array of transactions
  *
- * TODO: support paging
- *
  * @alias module:chainweb.transaction.range
  */
 const txs = async (chainId, start, end, network, host) => {
-    return blocks(chainId, start, end, network, host).then(filterTxs);
+    const x = await blocks(chainId, start, end, network, host);
+    return filterTxs(x);
 }
 
 /**
@@ -608,12 +679,11 @@ const txs = async (chainId, start, end, network, host) => {
  * @param {string} [host="https://api.chainweb.com"] - chainweb api host
  * @return {Promise} Array of transactions
  *
- * TODO: support paging
- *
  * @alias module:chainweb.transaction.recent
  */
 const recentTxs = async (chainId, depth = 0, n = 1, network, host) => {
-    return recentBlocks(chainId, depth, n, network, host).then(filterTxs);
+    const x = await recentBlocks(chainId, depth, n, network, host);
+    return filterTxs(x);
 }
 
 /**
@@ -663,6 +733,20 @@ const txsByBlockHash = async (chainId, hash, network, host) => {
     return filterTxs([block]);
 }
 
+/**
+ * Query transactions by height
+ *
+ * @param {number|string} chainId - a chain id that is valid for the network
+ * @param {string} hash - block height
+ * @param {string} [network="mainnet01"] - chainweb network
+ * @param {string} [host="https://api.chainweb.com"] - chainweb api host
+ * @return {Promise}
+ *
+ * @alias module:chainweb.transaction.height
+ */
+const txsByHeight = async (chainId, height, network, host) =>
+    txs(chainId, height, height, network, host);
+
 /* ************************************************************************** */
 /* Events */
 
@@ -689,12 +773,11 @@ const filterEvents = (blocks) => {
  * @param {string} [host="https://api.chainweb.com"] - chainweb api host
  * @return {Promise} Array of events
  *
- * TODO: support paging
- *
  * @alias module:chainweb.transaction.range
  */
 const events = async (chainId, start, end, network, host) => {
-    return blocks(chainId, start, end, network, host).then(filterEvents);
+    const x = await blocks(chainId, start, end, network, host);
+    return filterEvents(x);
 }
 
 /**
@@ -707,12 +790,11 @@ const events = async (chainId, start, end, network, host) => {
  * @param {string} [host="https://api.chainweb.com"] - chainweb api host
  * @return {Promise} Array of Pact events
  *
- * TODO: support paging
- *
  * @alias module:chainweb.event.recent
  */
 const recentEvents = async (chainId, depth = 0, n = 1, network, host) => {
-    return recentBlocks(chainId, depth, n, network, host).then(filterEvents);
+    const x = await recentBlocks(chainId, depth, n, network, host);
+    return filterEvents(x);
 }
 
 /**
@@ -762,6 +844,20 @@ const eventsByBlockHash = async (chainId, hash, network, host) => {
     return filterEvents([block]);
 }
 
+/**
+ * Query Events by height
+ *
+ * @param {number|string} chainId - a chain id that is valid for the network
+ * @param {string} hash - block height
+ * @param {string} [network="mainnet01"] - chainweb network
+ * @param {string} [host="https://api.chainweb.com"] - chainweb api host
+ * @return {Promise}
+ *
+ * @alias module:chainweb.event.height
+ */
+const eventsByHeight = async (chainId, height, network, host) =>
+    events(chainId, height, height, network, host);
+
 /* ************************************************************************** */
 /* Module Exports */
 
@@ -782,16 +878,7 @@ module.exports = {
         range: headers,
         recent: recentHeaders,
         stream: headerStream,
-        /**
-        * Query block header by its height
-        *
-        * @param {number|string} chainId - a chain id that is valid for the network
-        * @param {string} hash - block height
-        * @param {string} [network="mainnet01"] - chainweb network
-        * @param {string} [host="https://api.chainweb.com"] - chainweb api host
-        * @return {Promise}
-        */
-        height: (chainId, height, network, host) => headers(chainId, height, height, network, host).then(x => x[0]),
+        height: headerByHeight,
         blockHash: headerByBlockHash,
     },
     /**
@@ -801,16 +888,7 @@ module.exports = {
         range: blocks,
         recent: recentBlocks,
         stream: blockStream,
-        /**
-        * Query block by its height
-        *
-        * @param {number|string} chainId - a chain id that is valid for the network
-        * @param {string} hash - block height
-        * @param {string} [network="mainnet01"] - chainweb network
-        * @param {string} [host="https://api.chainweb.com"] - chainweb api host
-        * @return {Promise}
-        */
-        height: (chainId, height, network, host) => blocks(chainId, height, height, network, host).then(x => x[0]),
+        height: blockByHeight,
         blockHash: blockByBlockHash,
     },
     /**
@@ -820,16 +898,7 @@ module.exports = {
         range: txs,
         recent: recentTxs,
         stream: txStream,
-        /**
-        * Query transactions by height
-        *
-        * @param {number|string} chainId - a chain id that is valid for the network
-        * @param {string} hash - block height
-        * @param {string} [network="mainnet01"] - chainweb network
-        * @param {string} [host="https://api.chainweb.com"] - chainweb api host
-        * @return {Promise}
-        */
-        height: (chainId, height, network, host) => txs(chainId, height, height, network, host),
+        height: txsByHeight,
         blockHash: txsByBlockHash,
     },
     /**
@@ -839,21 +908,23 @@ module.exports = {
         range: events,
         recent: recentEvents,
         stream: eventStream,
-        /**
-        * Query Events by height
-        *
-        * @param {number|string} chainId - a chain id that is valid for the network
-        * @param {string} hash - block height
-        * @param {string} [network="mainnet01"] - chainweb network
-        * @param {string} [host="https://api.chainweb.com"] - chainweb api host
-        * @return {Promise}
-        */
-        height: (chainId, height, network, host) => events(chainId, height, height, network, host),
+        height: eventsByHeight,
         blockHash: eventsByBlockHash,
     },
 
-    /* Low-level Utils */
-    branch: branch,
-    payloads: payloads,
+    /**
+     * Internal Utilities
+     *
+     * Anything that is exported within the `internal` namespace
+     * is not covered by semantic versioning policy.
+     *
+     * @namespace
+     */
+    internal: {
+        branch: branch,
+        currentBranch: currentBranch,
+        payloads: payloads,
+        cutPeerPage: cutPeerPage,
+    }
 };
 
