@@ -1,7 +1,14 @@
 const chainweb = require('./src/chainweb');
 const HeaderBuffer = require('./src/HeaderBuffer');
 
+/* ************************************************************************** */
+/* Test settings */
+
 const debug = false;
+const streamTest = test.concurrent.skip;
+
+/* ************************************************************************** */
+/* Test Utils */
 
 const logg = (...args) => { if (debug) { console.log(...args); } };
 
@@ -174,12 +181,12 @@ describe("by blockHash", () => {
  */
 
 describe("recents", () => {
-    test("Header", async () => {
+    test.each([0,1,2,15])("Header %p", async (n) => {
         const cur = (await chainweb.cut.current()).hashes[0].height;
-        const r = await chainweb.header.recent(0, 10, 15);
+        const r = await chainweb.header.recent(0, 10, n);
         logg("Header:", r);
         expect(r).toBeTruthy();
-        expect(r.length).toBe(15);
+        expect(r.length).toBe(n);
         r.forEach((v, i) => {
             expect(v.height).toBeLessThanOrEqual(cur - 10);
             expect(v.chainwebVersion).toBe("mainnet01");
@@ -188,12 +195,12 @@ describe("recents", () => {
             }
         });
     });
-    test("Block", async () => {
+    test.each([0,10,359,360,361])("Block %p", async (n) => {
         const cur = (await chainweb.cut.current()).hashes[0].height;
-        const r = await chainweb.block.recent(0, 10, 15);
+        const r = await chainweb.block.recent(0, 10, n);
         logg("Block:", r);
         expect(r).toBeTruthy();
-        expect(r.length).toBe(15);
+        expect(r.length).toBe(n);
         r.forEach((v, i) => {
             expect(v.header.height).toBeLessThanOrEqual(cur - 10);
             expect(v.payload).toHaveProperty("coinbase");
@@ -204,9 +211,9 @@ describe("recents", () => {
             }
         });
     });
-    test("Transactions", async () => {
+    test.each([0,10,100])("Transactions %p", async (n) => {
         const cur = (await chainweb.cut.current()).hashes[0].height;
-        const r = await chainweb.transaction.recent(0, 10, 15);
+        const r = await chainweb.transaction.recent(0, 10, n);
         logg("Transactions:", r);
         expect(r).toBeTruthy();
         r.forEach((v, i) => {
@@ -246,15 +253,11 @@ describe("recents", () => {
  * should also use `range` or `recent` queries for the respective type of item.
  */
 
-// chainweb.header.range(0, 1500000, 1500010).then(x => console.log("Headers:", x));
-// chainweb.block.range(0, 1500000, 1500010).then(x => console.log("Blocks:", x));
-// chainweb.transaction.range(0, 1500000, 1500010).then(x => console.log("Transactions:", x));
-// chainweb.event.range(0, 1500000, 1500010).then(x => console.log("Events:", x));
 describe("range", () => {
-    test("Header", async () => {
-        const r = await chainweb.header.range(0, height, height + 15);
+    test.each([1,10,359,360,361,730])("Header %p", async (n) => {
+        const r = await chainweb.header.range(0, height, height + (n - 1));
         logg("Header:", r);
-        expect(r.length).toEqual(16);
+        expect(r.length).toEqual(n);
         expect(r[0]).toEqual(header);
         r.forEach((v, i) => {
             expect(v.height).toBe(header.height + i);
@@ -265,10 +268,10 @@ describe("range", () => {
             }
         });
     });
-    test("Block", async () => {
-        const r = await chainweb.block.range(0, height, height + 15);
+    test.each([1,10,359,360,361,730])("Block %p", async (n) => {
+        const r = await chainweb.block.range(0, height, height + (n-1));
         logg("Block:", r);
-        expect(r.length).toEqual(16);
+        expect(r.length).toEqual(n);
         expect(r[0].header).toEqual(header);
         r.forEach((v, i) => {
             expect(v.payload.payloadHash).toEqual(v.header.payloadHash);
@@ -280,8 +283,8 @@ describe("range", () => {
             }
         });
     });
-    test("Transactions", async () => {
-        const r = await chainweb.transaction.range(0, height, height + 15);
+    test.each([10,370])("Transactions %p", async (n) => {
+        const r = await chainweb.transaction.range(0, height, height + (n-1));
         logg("Transactions:", r);
         r.forEach((v,i) => {
             expect(v).toHaveProperty('transaction');
@@ -290,8 +293,8 @@ describe("range", () => {
             expect(v.height).toBeGreaterThanOrEqual(header.height + i);
         });
     });
-    test("Events", async () => {
-        const r = await chainweb.event.range(0, height, height + 15);
+    test.each([10, 370])("Events %p", async (n) => {
+        const r = await chainweb.event.range(0, height, height + (n-1));
         logg("Events:", r);
         r.forEach((v,i) => {
             expect(v).toHaveProperty('params');
@@ -325,7 +328,7 @@ const chains = [0,2,4,6,8,10,12,14,16,18];
 const allChains = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19];
 
 describe("stream", () => {
-    test.concurrent("Header", async () => {
+    streamTest("Header", async () => {
         let count = 0;
         const hs = chainweb.header.stream(1, chains, (h) => {
             logg("new header", h);
@@ -339,7 +342,7 @@ describe("stream", () => {
         expect(count).toBeGreaterThan(4);
     }, 61000);
 
-    test.concurrent("Block", async () => {
+    streamTest("Block", async () => {
         let count = 0;
         const hs = chainweb.block.stream(1, chains, (h) => {
             logg("new block", h);
@@ -353,7 +356,7 @@ describe("stream", () => {
         expect(count).toBeGreaterThan(4);
     }, 61000);
 
-    test.concurrent("Transactions", async () => {
+    streamTest("Transactions", async () => {
         let count = 0;
         const hs = chainweb.transaction.stream(1, allChains, (h) => {
             logg("new transaction", h);
@@ -366,7 +369,7 @@ describe("stream", () => {
         expect(count).toBeGreaterThanOrEqual(0);
     }, 61000);
 
-    test.concurrent("Events", async () => {
+    streamTest("Events", async () => {
         let count = 0;
         const hs = chainweb.event.stream(1, allChains, (h) => {
             logg("new event", h);

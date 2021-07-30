@@ -120,6 +120,50 @@ const chainUrl = (chainId, network, host, pathSuffix) => {
 }
 
 /* ************************************************************************** */
+/* Pageing Tools */
+
+/** Yields full pages, i.e. arrarys of page items.
+ *
+ * @param {callback} query - A query callback that takes a `next` and an optional `limit` parameter.
+ * @param {number} [n] - Optional upper limit and the number of returned items.
+ */
+const pageIterator = async function * (query, n) {
+    let next = null;
+    let c = 0;
+    do {
+        const limit = n ? n - c : null;
+        const page = await query(next, limit);
+        next = page.next;
+        c += page.limit;
+        yield page.items;
+    } while (next && (n ? c < n : true));
+}
+
+/** Yields flattened pages, i.e. individual page items are yielded.
+ */
+const pageItemIterator = async function * (query, n) {
+    const iter = pageIterator(query, n);
+    for await (p of iter) {
+        for await (i of p) {
+            yield p;
+        }
+    }
+}
+
+/* Yields items from pages in reverse order.
+ *
+ * WARNING: This awaits and buffers all pages before returning.
+ */
+const reversePages = async (query, n) => {
+    const iter = pageIterator(query, n);
+    let ps = [];
+    for await (p of iter) {
+        ps.unshift(p.reverse());
+    }
+    return ps.flat();
+}
+
+/* ************************************************************************** */
 /* Chainweb API Requests */
 
 /**
@@ -177,7 +221,7 @@ const cutPeers = async (network, host, retryOptions) => {
 }
 
 /**
- * Return block headers from chain in decending order
+ * A signle block header page in decending order
  *
  * @param {number|string} chainId - a chain id that is valid for the network
  * @param {string[]} [upper]- only antecessors of these block hashes are returned. Note that if this is null, the result is empty.
@@ -185,6 +229,7 @@ const cutPeers = async (network, host, retryOptions) => {
  * @param {number} [minHeight] - if given, minimum height of returned headers
  * @param {number} [maxHeight] - if given, maximum height of returned headers
  * @param {number} [n] - if given, limits the number of results. This is an upper limit. The actual number of returned items can be lower.
+ * @param {number} [next] - if given, provides a cursor that points to the next page of the result. The cursor is the `next` property of the previous page.
  * @param {string} [format='json'] - encoding of result headers. Possible values are 'json' (default) and 'binary'.
  * @param {string} [network="mainnet01"] - chainweb network
  * @param {string} [host="https://api.chainweb.com"] - chainweb api host
@@ -194,7 +239,7 @@ const cutPeers = async (network, host, retryOptions) => {
  *
  * @alias module:chainweb.internal.branch
  */
-const branch = async (chainId, upper, lower, minHeight, maxHeight, n, format, network, host, retryOptions) => {
+const branchPage = async (chainId, upper, lower, minHeight, maxHeight, n, next, format, network, host, retryOptions) => {
 
     /* Format and Accept header value */
     format = format ?? 'json';
@@ -215,6 +260,9 @@ const branch = async (chainId, upper, lower, minHeight, maxHeight, n, format, ne
     }
     if (n != null) {
         url.searchParams.append("limit", n);
+    }
+    if (next != null) {
+        url.searchParams.append("next", next);
     }
 
     /* Body */
@@ -238,6 +286,30 @@ const branch = async (chainId, upper, lower, minHeight, maxHeight, n, format, ne
 }
 
 /**
+ * Return block headers from chain
+ *
+ * @param {number|string} chainId - a chain id that is valid for the network
+ * @param {string[]} [upper]- only antecessors of these block hashes are returned. Note that if this is null, the result is empty.
+ * @param {string[]} [lower] - no antecessors of these block hashes are returned.
+ * @param {number} [minHeight] - if given, minimum height of returned headers
+ * @param {number} [maxHeight] - if given, maximum height of returned headers
+ * @param {number} [n] - if given, limits the number of results. This is an upper limit. The actual number of returned items can be lower.
+ * @param {string} [format='json'] - encoding of result headers. Possible values are 'json' (default) and 'binary'.
+ * @param {string} [network="mainnet01"] - chainweb network
+ * @param {string} [host="https://api.chainweb.com"] - chainweb api host
+ * @param {Object} [retryOptions] - retry options object as accepted by the retry package
+ * @param {boolean} [retryOptions.retry404=false] - whether to retry on 404 results
+ * @return [Object] Array of block headers in the requested format.
+ *
+ * @alias module:chainweb.internal.branch
+ */
+const branch = async (chainId, upper, lower, minHeight, maxHeight, n, format, network, host, retryOptions) => {
+    return await reversePages((next, limit) => {
+        return branchPage (chainId, upper, lower, minHeight, maxHeight, limit, next, format, network, host, retryOptions)
+    }, n);
+}
+
+/**
  * Headers from the current branch of the chain
  *
  * @param {number|string} chainId - a chain id that is valid for the network
@@ -247,7 +319,7 @@ const branch = async (chainId, upper, lower, minHeight, maxHeight, n, format, ne
  * @param {string} [format='json'] - encoding of result headers. Possible values are 'json' (default) and 'binary'.
  * @param {string} [network="mainnet01"] - chainweb network
  * @param {string} [host="https://api.chainweb.com"] - chainweb api host
- * @return {Object} Page of block headers in requested format. Headers are listed in decending order by height. The page size of a page is determined by the server.
+ * @return [Object] Array of block headers in the requested format.
  *
  * @alias module:chainweb.internal.currentBranch
  */
@@ -378,13 +450,10 @@ const chainUpdates = (depth, chainIds, callback, network, host) => {
  * @param {string} [host="https://api.chainweb.com"] - chainweb api host
  * @return {Promise} Array of block headers in ascending order.
  *
- * TODO: make sure that no header is missing (throw or support paging)
- *
  * @alias module:chainweb.header.range
  */
 const headers = async (chainId, start, end, network, host) => {
-    const b = await currentBranch(chainId, start, end, null, 'json', network, host);
-    return b.items.reverse();
+    return await currentBranch(chainId, start, end, null, 'json', network, host);
 }
 
 /**
@@ -397,8 +466,6 @@ const headers = async (chainId, start, end, network, host) => {
  * @param {string} [host="https://api.chainweb.com"] - chainweb api host
  * @return {Promise} Array of headers in ascending order.
  *
- * TODO: make sure that no header is missing (throw or support paging)
- *
  * @alias module:chainweb.header.recent
  */
 const recentHeaders = async (chainId, depth = 0, n = 1, network, host) => {
@@ -406,8 +473,7 @@ const recentHeaders = async (chainId, depth = 0, n = 1, network, host) => {
     const start = cut.hashes['0'].height - depth - n + 1;
     const end = cut.hashes['0'].height - depth;
     const upper = cut.hashes[`${chainId}`].hash;
-    const b = await branch(chainId, [upper], [], start, end, n, 'json', network, host);
-    return b.items.reverse();
+    return await branch(chainId, [upper], [], start, end, n, 'json', network, host);
 }
 
 /**
@@ -468,13 +534,13 @@ const headerStreamSince = (start, depth, chainId, callback, network, host) => {
  * @param {string} hash - block hash
  * @param {string} [network="mainnet01"] - chainweb network
  * @param {string} [host="https://api.chainweb.com"] - chainweb api host
- * @return {Promise}
+ * @return {Promise} Block header with the requested hash
  *
  * @alias module:chainweb.header.hash
  */
 const headerByBlockHash = async (chainId, hash, network, host) => {
     const x = await branch(chainId, [hash], [], null, null, 1);
-    return x.items[0];
+    return x[0];
 }
 
 /**
@@ -484,7 +550,7 @@ const headerByBlockHash = async (chainId, hash, network, host) => {
  * @param {string} hash - block height
  * @param {string} [network="mainnet01"] - chainweb network
  * @param {string} [host="https://api.chainweb.com"] - chainweb api host
- * @return {Promise}
+ * @return {Promise} Block header at the requested height
  *
  * @alias module:chainweb.header.height
  */
@@ -502,37 +568,49 @@ const headerByHeight = async (chainId, height, network, host) => {
  *
  * TODO: Currently all blocks must be from the same chain. We should support
  * blocks from different chains.
+ *
+ * TODO: The use of this function below is inefficient. It would be better
+ * to start fetching payloads asynchronously while iterating through
+ * block header pages.
  */
 const headers2blocks = async (hdrs, network, host, retryOptions) => {
-    if (hdrs.length === 0) {
-        return [];
-    }
+    let missing = hdrs;
+    const result = [];
 
-    const chainId = hdrs[0].chainId;
-    const pays = await payloads(
-        chainId,
-        hdrs.map(x => x.payloadHash),
-        'json',
-        network,
-        host,
-        retryOptions
-    );
+    while (missing.length > 0) {
 
-    if (hdrs.length !== pays.length) {
-        throw new Error (`failed to get payload for some blocks. Requested ${hdrs.length} payloads but got only ${pays.length}`)
-    }
+        const chainId = hdrs[0].chainId;
+        const pays = await payloads(
+            chainId,
+            hdrs.map(x => x.payloadHash),
+            'json',
+            network,
+            host,
+            retryOptions
+        );
 
-    let result = [];
-    for (let i = 0; i < hdrs.length; ++i) {
-        const hdr = hdrs[i], pay = pays[i];
-        if (pays[i].payloadHash == hdrs[i].payloadHash) {
-            result.push({
-                header: hdr,
-                payload: pay
-            });
-        } else {
-            throw new Error (`failed to get payload for block hash ${hdr.hash} at height ${hdr.height}`);
+        // Note that in worst case a server may return only one payload at a time thus starving the
+        // client. Well, chainweb nodes don't behave that way :-)
+        if (pays.length === 0) {
+            throw new Error (`failed to get payloads for some headers. Missing ${missing.map(h => ({ hash: h.hash, height: h.height}))}`);
         }
+
+        // index payloads by payloadHash
+        const paysMap = pays.reduce((m, c) => { m[c.payloadHash] = c; return m; }, {});
+
+        // assign payload to headers
+        missing = missing.filter((hdr, i) => {
+            const pay = paysMap[hdr.payloadHash];
+            if (pay) {
+                result.push({
+                    header: hdr,
+                    payload: pay
+                });
+                return false;
+            } else {
+                return true;
+            }
+        });
     }
     return result;
 }
@@ -611,13 +689,14 @@ const blockStream = (depth, chainIds, callback, network, host) => {
  * @param {string} hash - block hash
  * @param {string} [network="mainnet01"] - chainweb network
  * @param {string} [host="https://api.chainweb.com"] - chainweb api host
- * @return {Promise}
+ * @return {Promise} Block with the requested hash
  *
  * @alias module:chainweb.block.hash
  */
 const blockByBlockHash = async (chainId, hash, network, host) => {
     const hdr = await headerByBlockHash(chainId, hash, network, host);
-    return headers2blocks([hdr], network, host).then(x => x[0]);
+    const bs = await headers2blocks([hdr], network, host);
+    return bs[0];
 }
 
 /**
@@ -627,7 +706,7 @@ const blockByBlockHash = async (chainId, hash, network, host) => {
  * @param {string} hash - block height
  * @param {string} [network="mainnet01"] - chainweb network
  * @param {string} [host="https://api.chainweb.com"] - chainweb api host
- * @return {Promise}
+ * @return {Promise} Block at the requested height
  *
  * @alias module:chainweb.block.height
  */
@@ -724,7 +803,7 @@ const txStream = (depth, chainIds, callback, network, host) => {
  * @param {string} hash - block hash
  * @param {string} [network="mainnet01"] - chainweb network
  * @param {string} [host="https://api.chainweb.com"] - chainweb api host
- * @return {Promise}
+ * @return {Promise} Transactions from the block with the requested hash
  *
  * @alias module:chainweb.transaction.hash
  */
@@ -740,7 +819,7 @@ const txsByBlockHash = async (chainId, hash, network, host) => {
  * @param {string} hash - block height
  * @param {string} [network="mainnet01"] - chainweb network
  * @param {string} [host="https://api.chainweb.com"] - chainweb api host
- * @return {Promise}
+ * @return {Promise} Transactions from the block of the requested height
  *
  * @alias module:chainweb.transaction.height
  */
@@ -835,7 +914,7 @@ const eventStream = (depth, chainIds, callback, network, host) => {
  * @param {string} hash - block hash
  * @param {string} [network="mainnet01"] - chainweb network
  * @param {string} [host="https://api.chainweb.com"] - chainweb api host
- * @return {Promise}
+ * @return {Promise} Events from the block with the requested hash
  *
  * @alias module:chainweb.event.hash
  */
@@ -851,7 +930,7 @@ const eventsByBlockHash = async (chainId, hash, network, host) => {
  * @param {string} hash - block height
  * @param {string} [network="mainnet01"] - chainweb network
  * @param {string} [host="https://api.chainweb.com"] - chainweb api host
- * @return {Promise}
+ * @return {Promise} Events from the block of the requested height
  *
  * @alias module:chainweb.event.height
  */
@@ -921,6 +1000,7 @@ module.exports = {
      * @namespace
      */
     internal: {
+        branchPage: branchPage
         branch: branch,
         currentBranch: currentBranch,
         payloads: payloads,

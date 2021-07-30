@@ -32,6 +32,12 @@ respective `network`. There is no default value.
 
 When a `depth` parameter is required, a value of `3` or larger is a save choice.
 
+Functions return items in order ascending by block height. Because the server
+usually returns items in reverse order, functions buffer all items from
+possibly several pages, which can take some time. When fetching larger
+numbers of items it is recommended to use the functions in the package
+iteratively and possibly also asynchronously in order to increase performance.
+
 ## Cuts
 
 ```javascript
@@ -92,10 +98,6 @@ at a given depth.
 
 The depth parameter is useful to avoid receiving items from orphaned blocks.
 
-Currently, there is no support for paging. There is thus a limit on the
-size of the range that can be handled in a single call. The function simply
-return whatever fits into a server page.
-
 ```javascript
 chainweb.header.recent(0, 3, 10).then(x => console.log("Headers:", x));
 chainweb.block.recent(0, 3, 10).then(x => console.log("Blocks:", x));
@@ -110,10 +112,6 @@ items.
 
 These functions query items from a range of block heights and return the
 result as an array.
-
-Currently, there is no support for paging. There is thus a limit on the
-size of the range that can be handled in a single call. The function simply
-return whatever fits into a server page.
 
 ```javascript
 chainweb.header.range(0, 1500000, 1500010).then(x => console.log("Headers:", x));
