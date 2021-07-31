@@ -1,6 +1,7 @@
-/** chainweb.js
- * Exports functions to support interacting with a chainweb block chain
- * Author: Lar Kuhtz
+/**
+ * Functions for querying the Kadena Chainweb blockchain API
+ *
+ * @author Lars Kuhtz
  * @module chainweb
  */
 

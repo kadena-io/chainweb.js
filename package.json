@@ -21,7 +21,7 @@
   "main": "index.js",
   "scripts": {
     "test": "jest test.js",
-    "doc": "jsdoc index.js src/chainweb.js README.md"
+    "doc": "jsdoc -d docs package.json index.js src/chainweb.js README.md"
   },
   "author": "Lars Kuhtz <lars@kadena.io>",
   "license": "MIT",

@@ -6,9 +6,13 @@ API](https://api.chainweb.com/openapi/pact.html) endpoints.
 High level bindings for the Pact API are provided by the [pact-lang-api
 package](https://www.npmjs.com/package/pact-lang-api).
 
-# Documentation
+### API Documentation
 
-The API documentation for this package is available at https://kadena-io.github.io/chainweb.js
+*   [latest](https://kadena-io.github.io/chainweb.js/latest)
+*   [2.0.0](https://kadena-io.github.io/chainweb.js/2.0.0)
+*   [1.0.0](https://kadena-io.github.io/chainweb.js/1.0.0)
+
+*   [most recent development version](https://kadena-io.github.io/chainweb.js/head)
 
 # Usage Examples
 

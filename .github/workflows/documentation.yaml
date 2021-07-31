@@ -1,0 +1,64 @@
+name: GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - '*.*.*'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-20.04
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Node
+        uses: actions/setup-node@v2
+      - name: Setup Node
+        uses: actions/setup-node@v2
+        with:
+          node-version: '14'
+      - name: Install dependencies
+        run: npm install
+      - name: Build documentation
+        run: |
+          npm run doc
+          mv ./docs/chainweb/* ./public
+
+      # Main branch
+      - name: Deploy documentation to github pagees
+        uses: peaceiris/actions-gh-pages@v3
+        if: ${{ github.ref == 'refs/heads/main' }}
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          destination_dir: head
+          tag_name: 'documentation-head'
+          tag_message: 'API documentation for head version'
+
+      # Tags
+      - name: Extract tag name
+        id: tag_name
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        run: |
+          TAG="${GITHUB_REF##refs/tags/}"
+          echo "::set-output name=tag::${TAG}"
+      - name: Deploy documentation to github pages
+        uses: peaceiris/actions-gh-pages@v3
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          destination_dir: ${{ steps.tag_name.outputs.tag }}
+          tag_name: 'documentation-${{ steps.tag_name.outputs.tag }}'
+          tag_message: 'API documentation for version ${{ steps.tag_name.outputs.tag }}'
+      - name: Deploy latest documentation to github pages
+        uses: peaceiris/actions-gh-pages@v3
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          destination_dir: latest
+          tag_name: 'documentation-latest'
+          tag_message: 'API documentation of latest version'
+
+
