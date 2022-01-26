@@ -1,6 +1,6 @@
 {
   "name": "chainweb",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Javascript bindings for the Kadena Chainweb API",
   "keywords": [
     "chainweb",
