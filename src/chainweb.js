@@ -434,7 +434,7 @@ const chainUpdates = (depth, chainIds, callback, network, host) => {
     let bs = {};
     chainIds.forEach(x => bs[x] = new HeaderBuffer(depth, callback));
     return headerUpdates(
-        hdr => bs[hdr.header.chainId]?.add(hdr),
+        hdr => (bs[hdr.header.chainId].add === null || bs[hdr.header.chainId].add === undefined) ? undefined : bs[hdr.header.chainId].add(hdr),
         network,
         host
     );
