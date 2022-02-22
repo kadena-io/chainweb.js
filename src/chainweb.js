@@ -434,7 +434,7 @@ const chainUpdates = (depth, chainIds, callback, network, host) => {
     let bs = {};
     chainIds.forEach(x => bs[x] = new HeaderBuffer(depth, callback));
     return headerUpdates(
-        hdr => (bs[hdr.header.chainId].add === null || bs[hdr.header.chainId].add === undefined) ? undefined : bs[hdr.header.chainId].add(hdr),
+        hdr => (bs[hdr.header.chainId] == null || bs[hdr.header.chainId].add == null) ? undefined : bs[hdr.header.chainId].add(hdr),
         network,
         host
     );
@@ -542,7 +542,7 @@ const headerStreamSince = (start, depth, chainId, callback, network, host) => {
  * @alias module:chainweb.header.hash
  */
 const headerByBlockHash = async (chainId, hash, network, host) => {
-    const x = await branch(chainId, [hash], [], null, null, 1);
+    const x = await branch(chainId, [hash], [], null, null, 1, null, network, host, null);
     return x[0];
 }
 
@@ -1010,5 +1010,3 @@ module.exports = {
         cutPeerPage: cutPeerPage,
     }
 };
-
-
