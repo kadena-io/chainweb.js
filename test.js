@@ -4,6 +4,7 @@ const HeaderBuffer = require('./src/HeaderBuffer');
 /* ************************************************************************** */
 /* Test settings */
 
+jest.setTimeout(25000);
 const debug = false;
 // const streamTest = test.concurrent.skip;
 const streamTest = test.concurrent;
@@ -42,7 +43,7 @@ describe("retry", () => {
 
 describe("Cuts", () => {
     test("peers", async () => {
-        const r = await chainweb.cut.peers();
+        const r = await chainweb.cut.peers("mainnet01", "https://us-e1.chainweb.com");
         logg("Cut Peers:", r);
         expect(r).toBeTruthy();
         expect(r.length).toBeGreaterThan(0);
@@ -419,4 +420,3 @@ function testHeaderBuffer () {
 test("HeaderBuffer", () => {
     expect(testHeaderBuffer()).toBe(true);
 });
-
