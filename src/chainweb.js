@@ -507,7 +507,7 @@ const headerStream = (depth, chainIds, callback, network, host) => {
 const headerStreamSince = (start, depth, chainId, callback, network, host) => {
 
     // loop while (streamStart == null || a < streamStart)
-    const a = start - 1;
+    let a = start - 1;
     const streamStart = null;
 
     // find recent upper bound (cur - depth)
