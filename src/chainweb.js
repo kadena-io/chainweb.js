@@ -142,17 +142,6 @@ const pageIterator = async function * (query, n) {
     } while (next && (n ? c < n : true));
 }
 
-/** Yields flattened pages, i.e. individual page items are yielded.
- */
-const pageItemIterator = async function * (query, n) {
-    const iter = pageIterator(query, n);
-    for await (p of iter) {
-        for await (i of p) {
-            yield p;
-        }
-    }
-}
-
 /* Yields items from pages in reverse order.
  *
  * WARNING: This awaits and buffers all pages before returning.
