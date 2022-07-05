@@ -149,7 +149,7 @@ const pageIterator = async function * (query, n) {
 const reversePages = async (query, n) => {
     const iter = pageIterator(query, n);
     let ps = [];
-    for await (p of iter) {
+    for await (const p of iter) {
         ps.unshift(p.reverse());
     }
     return ps.flat();
